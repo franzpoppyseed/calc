@@ -1,0 +1,428 @@
+import React, { useState, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { TrendingUp, DollarSign, Calendar, Percent, PiggyBank } from 'lucide-react';
+
+export default function CompoundCalculator() {
+  const [principal, setPrincipal] = useState(10000);
+  const [monthlyContribution, setMonthlyContribution] = useState(500);
+  const [annualRate, setAnnualRate] = useState(8);
+  const [years, setYears] = useState(30);
+  const [compoundFreq, setCompoundFreq] = useState('monthly');
+  const [startAge, setStartAge] = useState(25);
+  const [incomeSource, setIncomeSource] = useState('salary');
+  const [contributionIncrease, setContributionIncrease] = useState(3);
+  const [additionalIncomes, setAdditionalIncomes] = useState([]);
+
+  const frequencies = {
+    daily: 365,
+    weekly: 52,
+    monthly: 12,
+    quarterly: 4,
+    annually: 1
+  };
+
+  const addIncomeSource = () => {
+    setAdditionalIncomes([...additionalIncomes, {
+      id: Date.now(),
+      name: 'Additional Income',
+      amount: 100,
+      startYear: 0,
+      endYear: years
+    }]);
+  };
+
+  const removeIncomeSource = (id) => {
+    setAdditionalIncomes(additionalIncomes.filter(income => income.id !== id));
+  };
+
+  const updateIncomeSource = (id, field, value) => {
+    setAdditionalIncomes(additionalIncomes.map(income => 
+      income.id === id ? { ...income, [field]: value } : income
+    ));
+  };
+
+  const chartData = useMemo(() => {
+    const n = frequencies[compoundFreq];
+    const r = annualRate / 100;
+    const data = [];
+    
+    let totalContributions = principal;
+    let balance = principal;
+    
+    for (let year = 0; year <= years; year++) {
+      const age = startAge + year;
+      
+      if (year > 0) {
+        const periodsInYear = compoundFreq === 'monthly' ? 12 : n;
+        const baseContribution = monthlyContribution * (compoundFreq === 'monthly' ? 1 : 12 / periodsInYear);
+        const adjustedContribution = baseContribution * Math.pow(1 + contributionIncrease / 100, year - 1);
+        
+        // Calculate additional income contributions for this year
+        let additionalMonthly = 0;
+        additionalIncomes.forEach(income => {
+          if (year >= income.startYear && year <= income.endYear) {
+            additionalMonthly += income.amount * (compoundFreq === 'monthly' ? 1 : 12 / periodsInYear);
+          }
+        });
+        
+        const totalPeriodContribution = adjustedContribution + additionalMonthly;
+        
+        for (let period = 0; period < periodsInYear; period++) {
+          balance = balance * (1 + r / n) + totalPeriodContribution;
+          totalContributions += totalPeriodContribution;
+        }
+      }
+      
+      const interest = balance - totalContributions;
+      
+      data.push({
+        year,
+        age,
+        balance: Math.round(balance),
+        contributions: Math.round(totalContributions),
+        interest: Math.round(interest)
+      });
+    }
+    
+    return data;
+  }, [principal, monthlyContribution, annualRate, years, compoundFreq, startAge, contributionIncrease, additionalIncomes]);
+
+  const finalData = chartData[chartData.length - 1];
+  const totalInterest = finalData.balance - finalData.contributions;
+  const roi = ((finalData.balance / finalData.contributions - 1) * 100).toFixed(1);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <TrendingUp className="w-10 h-10 text-pink-400" />
+            <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">
+              Wealth Builder Pro
+            </h1>
+          </div>
+          <p className="text-purple-200 text-lg">Watch your investments grow over time</p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Controls Panel */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <DollarSign className="w-6 h-6 text-pink-400" />
+              Investment Parameters
+            </h2>
+
+            <div className="space-y-6">
+              {/* Initial Investment */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block">Initial Investment</label>
+                <div className="flex gap-2">
+                  <span className="text-white text-2xl font-bold">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={principal}
+                    onChange={(e) => setPrincipal(Number(e.target.value) || 0)}
+                    className="flex-1 bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+              </div>
+
+              {/* Monthly Contribution */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block">Monthly Contribution</label>
+                <div className="flex gap-2">
+                  <span className="text-white text-2xl font-bold">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={monthlyContribution}
+                    onChange={(e) => setMonthlyContribution(Number(e.target.value) || 0)}
+                    className="flex-1 bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+              </div>
+
+              {/* Annual Contribution Increase */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block">Annual Contribution Increase</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    step="0.5"
+                    value={contributionIncrease}
+                    onChange={(e) => setContributionIncrease(Number(e.target.value) || 0)}
+                    className="flex-1 bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                  <span className="text-white text-2xl font-bold">%</span>
+                </div>
+              </div>
+
+              {/* Interest Rate */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block flex items-center gap-2">
+                  <Percent className="w-4 h-4" />
+                  Annual Return Rate
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    step="0.5"
+                    value={annualRate}
+                    onChange={(e) => setAnnualRate(Number(e.target.value) || 0)}
+                    className="flex-1 bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                  <span className="text-white text-2xl font-bold">%</span>
+                </div>
+              </div>
+
+              {/* Investment Period */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Investment Period (Years)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
+                  value={years}
+                  onChange={(e) => setYears(Number(e.target.value) || 1)}
+                  className="w-full bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+
+              {/* Starting Age */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block">Starting Age</label>
+                <input
+                  type="number"
+                  min="18"
+                  max="80"
+                  step="1"
+                  value={startAge}
+                  onChange={(e) => setStartAge(Number(e.target.value) || 18)}
+                  className="w-full bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
+                />
+                <p className="text-sm text-purple-300">End age: {startAge + years} years old</p>
+              </div>
+
+              {/* Compound Frequency */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block">Compound Frequency</label>
+                <select
+                  value={compoundFreq}
+                  onChange={(e) => setCompoundFreq(e.target.value)}
+                  className="w-full bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  <option value="daily">Daily (365x/year)</option>
+                  <option value="weekly">Weekly (52x/year)</option>
+                  <option value="monthly">Monthly (12x/year)</option>
+                  <option value="quarterly">Quarterly (4x/year)</option>
+                  <option value="annually">Annually (1x/year)</option>
+                </select>
+              </div>
+
+              {/* Income Source */}
+              <div className="space-y-2">
+                <label className="text-purple-200 font-medium block flex items-center gap-2">
+                  <PiggyBank className="w-4 h-4" />
+                  Primary Income Source
+                </label>
+                <select
+                  value={incomeSource}
+                  onChange={(e) => setIncomeSource(e.target.value)}
+                  className="w-full bg-purple-900/50 border border-purple-500/50 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  <option value="salary">Salary/Wages</option>
+                  <option value="business">Business Income</option>
+                  <option value="freelance">Freelance/Gig Work</option>
+                  <option value="passive">Passive Income</option>
+                  <option value="retirement">Retirement Funds</option>
+                  <option value="inheritance">Inheritance/Gift</option>
+                </select>
+              </div>
+
+              {/* Additional Income Sources */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-purple-200 font-medium flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Additional Income Sources
+                  </label>
+                  <button
+                    onClick={addIncomeSource}
+                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    + Add Income
+                  </button>
+                </div>
+                
+                {additionalIncomes.map((income, index) => (
+                  <div key={income.id} className="bg-purple-900/30 border border-purple-500/30 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <input
+                        type="text"
+                        value={income.name}
+                        onChange={(e) => updateIncomeSource(income.id, 'name', e.target.value)}
+                        placeholder="Income name"
+                        className="flex-1 bg-purple-900/50 border border-purple-500/50 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      />
+                      <button
+                        onClick={() => removeIncomeSource(income.id)}
+                        className="ml-2 text-red-400 hover:text-red-300 font-bold text-xl"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-xs text-purple-300 block mb-1">Monthly $</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={income.amount}
+                          onChange={(e) => updateIncomeSource(income.id, 'amount', Number(e.target.value) || 0)}
+                          className="w-full bg-purple-900/50 border border-purple-500/50 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-purple-300 block mb-1">Start Year</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={years}
+                          value={income.startYear}
+                          onChange={(e) => updateIncomeSource(income.id, 'startYear', Number(e.target.value) || 0)}
+                          className="w-full bg-purple-900/50 border border-purple-500/50 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-purple-300 block mb-1">End Year</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={years}
+                          value={income.endYear}
+                          onChange={(e) => updateIncomeSource(income.id, 'endYear', Number(e.target.value) || 0)}
+                          className="w-full bg-purple-900/50 border border-purple-500/50 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Chart and Stats Panel */}
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-pink-500/20 to-purple-500/20 backdrop-blur-lg rounded-xl p-4 border border-pink-500/30">
+                <p className="text-purple-200 text-sm mb-1">Final Balance</p>
+                <p className="text-2xl font-bold text-white">${finalData.balance.toLocaleString()}</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500/20 to-indigo-500/20 backdrop-blur-lg rounded-xl p-4 border border-purple-500/30">
+                <p className="text-purple-200 text-sm mb-1">Total Interest</p>
+                <p className="text-2xl font-bold text-white">${totalInterest.toLocaleString()}</p>
+              </div>
+              <div className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 backdrop-blur-lg rounded-xl p-4 border border-indigo-500/30">
+                <p className="text-purple-200 text-sm mb-1">Total Contributed</p>
+                <p className="text-2xl font-bold text-white">${finalData.contributions.toLocaleString()}</p>
+              </div>
+              <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-lg rounded-xl p-4 border border-green-500/30">
+                <p className="text-purple-200 text-sm mb-1">ROI</p>
+                <p className="text-2xl font-bold text-white">{roi}%</p>
+              </div>
+            </div>
+
+            {/* Chart */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl">
+              <h3 className="text-xl font-bold text-white mb-4">Growth Over Time</h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorContributions" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+                  <XAxis 
+                    dataKey="age" 
+                    stroke="#e9d5ff"
+                    label={{ value: 'Age', position: 'insideBottom', offset: -5, fill: '#e9d5ff' }}
+                  />
+                  <YAxis 
+                    stroke="#e9d5ff"
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(88, 28, 135, 0.95)', 
+                      border: '1px solid rgba(236, 72, 153, 0.5)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                    formatter={(value) => `$${value.toLocaleString()}`}
+                    labelFormatter={(label) => `Age: ${label}`}
+                  />
+                  <Legend wrapperStyle={{ color: '#e9d5ff' }} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="contributions" 
+                    stroke="#a855f7" 
+                    fillOpacity={1} 
+                    fill="url(#colorContributions)" 
+                    name="Contributions"
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="balance" 
+                    stroke="#ec4899" 
+                    fillOpacity={1} 
+                    fill="url(#colorBalance)" 
+                    name="Total Balance"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Box */}
+        <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+          <h3 className="text-xl font-bold text-white mb-3">Your Investment Journey</h3>
+          <div className="grid md:grid-cols-3 gap-4 text-purple-200">
+            <div>
+              <p className="font-semibold text-pink-400">Starting Point</p>
+              <p>Age {startAge} with ${principal.toLocaleString()} initial investment</p>
+            </div>
+            <div>
+              <p className="font-semibold text-pink-400">Growth Strategy</p>
+              <p>Adding ${monthlyContribution.toLocaleString()}/month, increasing by {contributionIncrease}% annually</p>
+            </div>
+            <div>
+              <p className="font-semibold text-pink-400">End Goal</p>
+              <p>Age {startAge + years} with ${finalData.balance.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
